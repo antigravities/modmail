@@ -1214,7 +1214,7 @@ class ThreadManager:
         if message and self.bot.config["minimum_message_length"]:
             min_length = int(self.bot.config["minimum_message_length"])
 
-            if min_length > 0 and len(message.content) < min_length:
+            if min_length > 0 and len(message.content) < min_length and not (self.bot.config["attachments_bypass_minimum_message_length"] and len(message.attachments) > 0):
                 await message.channel.send(self.bot.config["minimum_message_length_response"])
                 thread.cancelled = True
                 del self.cache[recipient.id]

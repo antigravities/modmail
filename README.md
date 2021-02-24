@@ -55,6 +55,7 @@ There are more changes planned, but this is what I have for now:
 
 * Removal of scary server tracking feature
 * Slightly more streamlined pip3 dependency management
+* Mandatory opening message lengths
 
 ## Installation
 

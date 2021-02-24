@@ -882,14 +882,25 @@
   },
   "minimum_message_length": {
     "default": "0",
+    "examples": [],
     "description": "If the opening message is less than this length, a thread will not be created.",
     "notes": [
-      "Set to 0 to disable."
+      "Set to 0 to disable.",
+      "See also: `attachments_bypass_minimum_message_length`"
     ]
   },
   "minimum_message_length_response": {
     "default": "Your message was too short. Make your message longer and try again.",
+    "examples": [],
     "description": "The message to send when a user's message is too short.",
+    "notes": [
+      "See also: `minimum_message_length`"
+    ]
+  },
+  "attachments_bypass_minimum_message_length": {
+    "default": "No",
+    "examples": [],
+    "description": "Whether attaching a file bypasses the minimum message length requirement.",
     "notes": [
       "See also: `minimum_message_length`"
     ]
