@@ -67,7 +67,6 @@ class ModmailBot(commands.Bot):
         super().__init__(command_prefix=None, intents=intents)  # implemented in `get_prefix`
         self._session = None
         self._api = None
-        self.metadata_loop = None
         self.autoupdate_loop = None
         self.formatter = SafeFormatter()
         self.loaded_cogs = ["cogs.modmail", "cogs.plugins", "cogs.utility"]
@@ -544,19 +543,6 @@ class ModmailBot(commands.Bot):
                     logger.debug(
                         "Failed to close thread with channel %s, skipping.", log["channel_id"]
                     )
-
-        if self.config.get("data_collection"):
-            self.metadata_loop = tasks.Loop(
-                self.post_metadata,
-                seconds=0,
-                minutes=0,
-                hours=1,
-                count=None,
-                reconnect=True,
-                loop=None,
-            )
-            self.metadata_loop.before_loop(self.before_post_metadata)
-            self.metadata_loop.start()
 
         self.autoupdate_loop = tasks.Loop(
             self.autoupdate, seconds=0, minutes=0, hours=1, count=None, reconnect=True, loop=None
@@ -1444,46 +1430,6 @@ class ModmailBot(commands.Bot):
             )
         else:
             logger.error("Unexpected exception:", exc_info=exception)
-
-    async def post_metadata(self):
-        info = await self.application_info()
-
-        data = {
-            "bot_id": self.user.id,
-            "bot_name": str(self.user),
-            "avatar_url": str(self.user.avatar_url),
-            "guild_id": self.guild_id,
-            "guild_name": self.guild.name,
-            "member_count": len(self.guild.members),
-            "uptime": (datetime.utcnow() - self.start_time).total_seconds(),
-            "latency": f"{self.ws.latency * 1000:.4f}",
-            "version": str(self.version),
-            "selfhosted": True,
-            "last_updated": str(datetime.utcnow()),
-        }
-
-        if info.team is not None:
-            data.update(
-                {
-                    "owner_name": info.team.owner.name
-                    if info.team.owner is not None
-                    else "No Owner",
-                    "owner_id": info.team.owner_id,
-                    "team": True,
-                }
-            )
-        else:
-            data.update({"owner_name": info.owner.name, "owner_id": info.owner.id, "team": False})
-
-        async with self.session.post("https://api.modmail.dev/metadata", json=data):
-            logger.debug("Uploading metadata to Modmail server.")
-
-    async def before_post_metadata(self):
-        await self.wait_for_connected()
-        logger.debug("Starting metadata loop.")
-        logger.line("debug")
-        if not self.guild:
-            self.metadata_loop.cancel()
 
     async def autoupdate(self):
         changelog = await Changelog.from_url(self)
