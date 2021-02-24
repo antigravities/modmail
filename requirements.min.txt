@@ -1,4 +1,4 @@
-# Generated as of June, 2020
+# Generated as of February, 2021
 # This is the bare minimum requirements.txt for running Modmail.
 # To install requirements.txt run: pip install -r requirements.min.txt
 
@@ -6,7 +6,7 @@ aiohttp==3.6.2
 async-timeout==3.0.1
 attrs==19.3.0
 chardet==3.0.4
-./discord.py-1.5.2.tar.gz
+discord.py==1.6.0
 dnspython==1.16.0
 emoji==0.5.4
 future==0.18.2

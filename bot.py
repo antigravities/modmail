@@ -118,7 +118,7 @@ class ModmailBot(commands.Bot):
         else:
             logger.info("MODMAIL")
         logger.info("v%s", __version__)
-        logger.info("Authors: kyb3r, fourjr, Taaku18")
+        logger.info("Authors: kyb3r, fourjr, Taaku18, antigravities, Cutie Café")
         logger.line()
         logger.info("discord.py: v%s", discord.__version__)
         logger.line()
