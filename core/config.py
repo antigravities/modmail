@@ -82,9 +82,9 @@ class ConfigManager:
         "silent_alert_on_mention": False,
         "show_timestamp": True,
         "anonymous_snippets": False,
-        "minimum_message_length": "0",
-        "minimum_message_length_response": "Your message was too short. Make your message longer and try again.",
-        "attachments_bypass_minimum_message_length": False,
+        "minimum_open_message_length": "0",
+        "minimum_open_message_length_response": "Your message was too short. Make your message longer and try again.",
+        "attachments_bypass_minimum_open_message_length": False,
         # moderation
         "recipient_color": str(discord.Color.gold()),
         "mod_color": str(discord.Color.green()),
@@ -184,6 +184,7 @@ class ConfigManager:
         "update_notifications",
         "thread_contact_silently",
         "anonymous_snippets",
+        "attachments_bypass_minimum_open_message_length",
     }
 
     enums = {
