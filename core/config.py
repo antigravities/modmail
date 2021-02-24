@@ -101,6 +101,8 @@ class ConfigManager:
         "confirm_thread_creation_deny": "\U0001F6AB",
         # regex
         "use_regex_autotrigger": False,
+        "minimum_message_length": 0,
+        "minimum_message_length_response": "Your message was too short. Make your message longer and try again.",
     }
 
     private_keys = {

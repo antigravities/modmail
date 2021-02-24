@@ -879,5 +879,19 @@
     "notes": [
       "This configuration can only to be set through `.env` file or environment (config) variables."
     ]
+  },
+  "minimum_message_length": {
+    "default": "0",
+    "description": "If the opening message is less than this length, a thread will not be created.",
+    "notes": [
+      "Set to 0 to disable."
+    ]
+  },
+  "minimum_message_length_response": {
+    "default": "Your message was too short. Make your message longer and try again.",
+    "description": "The message to send when a user's message is too short.",
+    "notes": [
+      "See also: `minimum_message_length`"
+    ]
   }
 }

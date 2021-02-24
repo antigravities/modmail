@@ -1211,6 +1211,15 @@ class ThreadManager:
                 self.bot.config.set("fallback_category_id", category.id)
                 await self.bot.config.update()
 
+        if message and self.bot.config["minimum_message_length"]:
+            min_length = int(self.bot.config["minimum_message_length"])
+
+            if min_length > 0 and len(message.content) < min_length:
+                await message.channel.send(self.bot.config["minimum_message_length_response"])
+                thread.cancelled = True
+                del self.cache[recipient.id]
+                return thread
+
         if message and self.bot.config["confirm_thread_creation"]:
             confirm = await message.channel.send(
                 embed=discord.Embed(
