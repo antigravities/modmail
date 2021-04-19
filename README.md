@@ -6,7 +6,6 @@
   <br>
 
   **This project is a fork of [kyb3r/modmail](https://github.com/kyb3r/modmail).**
-
 <br>
 <img src='https://i.imgur.com/fru5Q07.png' align='center' width=500>
 </div>

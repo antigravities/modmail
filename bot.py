@@ -1,4 +1,4 @@
-__version__ = "3.8.5"
+__version__ = "3.9.3"
 
 
 import asyncio
@@ -6,6 +6,7 @@ import copy
 import logging
 import os
 import re
+import signal
 import sys
 import typing
 from datetime import datetime
@@ -46,7 +47,7 @@ from core.models import (
 )
 from core.thread import ThreadManager
 from core.time import human_timedelta
-from core.utils import human_join, normalize_alias, truncate
+from core.utils import normalize_alias, truncate
 
 logger = getLogger(__name__)
 
@@ -106,6 +107,15 @@ class ModmailBot(commands.Bot):
 
         if os.environ.get("pm_id"):
             return HostingMethod.PM2
+
+        if os.environ.get("INVOCATION_ID"):
+            return HostingMethod.SYSTEMD
+
+        if os.environ.get("USING_DOCKER"):
+            return HostingMethod.DOCKER
+
+        if os.environ.get("TERM"):
+            return HostingMethod.SCREEN
 
         return HostingMethod.OTHER
 
@@ -183,40 +193,106 @@ class ModmailBot(commands.Bot):
     async def get_prefix(self, message=None):
         return [self.prefix, f"<@{self.user.id}> ", f"<@!{self.user.id}> "]
 
-    def run(self, *args, **kwargs):
+    def run(self):
+        loop = self.loop
+
         try:
-            self.loop.run_until_complete(self.start(self.token))
-        except KeyboardInterrupt:
+            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
+            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
+        except NotImplementedError:
             pass
-        except discord.LoginFailure:
-            logger.critical("Invalid token")
-        except discord.PrivilegedIntentsRequired:
-            intents = discord.Intents.default()
-            intents.members = True
-            # Try again with members intent
-            self._connection._intents = intents
-            logger.warning(
-                "Attempting to login with only the server members privileged intent. Some plugins might not work correctly."
-            )
+
+        async def runner():
             try:
-                self.loop.run_until_complete(self.start(self.token))
+                retry_intents = False
+                try:
+                    await self.start(self.token)
+                except discord.PrivilegedIntentsRequired:
+                    retry_intents = True
+                if retry_intents:
+                    await self.http.close()
+                    if self.ws is not None and self.ws.open:
+                        await self.ws.close(code=1000)
+                    self._ready.clear()
+                    intents = discord.Intents.default()
+                    intents.members = True
+                    # Try again with members intent
+                    self._connection._intents = intents
+                    logger.warning(
+                        "Attempting to login with only the server members privileged intent. Some plugins might not work correctly."
+                    )
+                    await self.start(self.token)
             except discord.PrivilegedIntentsRequired:
                 logger.critical(
                     "Privileged intents are not explicitly granted in the discord developers dashboard."
                 )
-        except Exception:
-            logger.critical("Fatal exception", exc_info=True)
-        finally:
-            self.loop.run_until_complete(self.logout())
-            for task in asyncio.all_tasks(self.loop):
-                task.cancel()
-            try:
-                self.loop.run_until_complete(asyncio.gather(*asyncio.all_tasks(self.loop)))
-            except asyncio.CancelledError:
-                logger.debug("All pending tasks has been cancelled.")
+            except discord.LoginFailure:
+                logger.critical("Invalid token")
+            except Exception:
+                logger.critical("Fatal exception", exc_info=True)
             finally:
-                self.loop.run_until_complete(self.session.close())
-                logger.error(" - Shutting down bot - ")
+                if not self.is_closed():
+                    await self.close()
+                if self._session:
+                    await self._session.close()
+
+        def stop_loop_on_completion(f):
+            loop.stop()
+
+        def _cancel_tasks():
+            if sys.version_info < (3, 8):
+                task_retriever = asyncio.Task.all_tasks
+            else:
+                task_retriever = asyncio.all_tasks
+
+            tasks = {t for t in task_retriever(loop=loop) if not t.done()}
+
+            if not tasks:
+                return
+
+            logger.info("Cleaning up after %d tasks.", len(tasks))
+            for task in tasks:
+                task.cancel()
+
+            loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+            logger.info("All tasks finished cancelling.")
+
+            for task in tasks:
+                if task.cancelled():
+                    continue
+                if task.exception() is not None:
+                    loop.call_exception_handler(
+                        {
+                            "message": "Unhandled exception during Client.run shutdown.",
+                            "exception": task.exception(),
+                            "task": task,
+                        }
+                    )
+
+        future = asyncio.ensure_future(runner(), loop=loop)
+        future.add_done_callback(stop_loop_on_completion)
+        try:
+            loop.run_forever()
+        except KeyboardInterrupt:
+            logger.info("Received signal to terminate bot and event loop.")
+        finally:
+            future.remove_done_callback(stop_loop_on_completion)
+            logger.info("Cleaning up tasks.")
+
+            try:
+                _cancel_tasks()
+                if sys.version_info >= (3, 6):
+                    loop.run_until_complete(loop.shutdown_asyncgens())
+            finally:
+                logger.info("Closing the event loop.")
+                loop.close()
+
+        if not future.cancelled():
+            try:
+                return future.result()
+            except KeyboardInterrupt:
+                # I am unsure why this gets raised here but suppress it anyway
+                return None
 
     @property
     def bot_owner_ids(self):
@@ -1174,6 +1250,14 @@ class ModmailBot(commands.Bot):
                     # the reacted message is the corresponding thread creation embed
                     # closing thread
                     return await thread.close(closer=user)
+            if (
+                message.author == self.user
+                and message.embeds
+                and self.config.get("confirm_thread_creation")
+                and message.embeds[0].title == self.config["confirm_thread_creation_title"]
+                and message.embeds[0].description == self.config["confirm_thread_response"]
+            ):
+                return
             if not thread.recipient.dm_channel:
                 await thread.recipient.create_dm()
             try:
@@ -1224,14 +1308,32 @@ class ModmailBot(commands.Bot):
                     if not member.bot:
                         message = await channel.fetch_message(payload.message_id)
                         await message.remove_reaction(payload.emoji, member)
+                        await message.add_reaction(emoji_fmt)  # bot adds as well
+
+                        if self.config["dm_disabled"] in (
+                            DMDisabled.NEW_THREADS,
+                            DMDisabled.ALL_THREADS,
+                        ):
+                            embed = discord.Embed(
+                                title=self.config["disabled_new_thread_title"],
+                                color=self.error_color,
+                                description=self.config["disabled_new_thread_response"],
+                            )
+                            embed.set_footer(
+                                text=self.config["disabled_new_thread_footer"],
+                                icon_url=self.guild.icon_url,
+                            )
+                            logger.info(
+                                "A new thread using react to contact was blocked from %s due to disabled Modmail.",
+                                member,
+                            )
+                            return await member.send(embed=embed)
 
                         ctx = await self.get_context(message)
                         ctx.author = member
                         await ctx.invoke(
                             self.get_command("contact"), user=member, manual_trigger=False
                         )
-
-                        await message.add_reaction(emoji_fmt)  # bot adds as well
 
     async def on_raw_reaction_remove(self, payload):
         if self.config["transfer_reactions"]:
@@ -1490,7 +1592,7 @@ class ModmailBot(commands.Bot):
                 elif res != "Already up to date.":
                     logger.info("Bot has been updated.")
                     channel = self.update_channel
-                    if self.hosting_method == HostingMethod.PM2:
+                    if self.hosting_method in (HostingMethod.PM2, HostingMethod.SYSTEMD):
                         embed = discord.Embed(title="Bot has been updated", color=self.main_color)
                         embed.set_footer(
                             text=f"Updating Modmail v{self.version} " f"-> v{latest.version}"
@@ -1518,6 +1620,10 @@ class ModmailBot(commands.Bot):
             logger.warning("Autoupdates disabled.")
             self.autoupdate_loop.cancel()
 
+        if self.hosting_method == HostingMethod.DOCKER:
+            logger.warning("Autoupdates disabled as using Docker.")
+            self.autoupdate_loop.cancel()
+
         if not self.config.get("github_token") and self.hosting_method == HostingMethod.HEROKU:
             logger.warning("GitHub access token not found.")
             logger.warning("Autoupdates disabled.")
@@ -1537,7 +1643,7 @@ def main():
     # check discord version
     if discord.__version__ != "1.6.0":
         logger.error(
-            "Dependencies are not updated, run pipenv install. discord.py version expected 1.6.0, recieved %s",
+            "Dependencies are not updated, run pipenv install. discord.py version expected 1.6.0, received %s",
             discord.__version__,
         )
         sys.exit(0)

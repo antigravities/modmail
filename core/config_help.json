@@ -86,7 +86,7 @@
     "thumbnail": "https://placehold.it/100/e74c3c?text=+"
   },
   "user_typing": {
-    "default": "Disabled",
+    "default": "Enabled",
     "description": "When this is set to `yes`, whenever the recipient user starts to type in their DM channel, the moderator will see “{bot.user.display_name} is typing…” in the thread channel.",
     "examples": [
       "`{prefix}config set user_typing yes`",
@@ -94,6 +94,17 @@
     ],
     "notes": [
       "See also: `mod_typing`."
+    ]
+  },
+  "use_user_id_channel_name": {
+    "default": "No",
+    "description": "When this is set to `yes`, new thread channels will be named with the recipient's ID instead of the recipient's name.",
+    "examples": [
+      "`{prefix}config set use_user_id_channel_name yes`",
+      "`{prefix}config set use_user_id_channel_name no`"
+    ],
+    "notes": [
+      "This config is suitable for servers in Server Discovery to comply with channel name restrictions."
     ]
   },
   "mod_typing": {

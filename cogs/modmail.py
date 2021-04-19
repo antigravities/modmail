@@ -1,5 +1,4 @@
 import asyncio
-from operator import truediv
 import re
 from datetime import datetime
 from itertools import zip_longest
@@ -1027,7 +1026,15 @@ class Modmail(commands.Cog):
             await ctx.channel.send(embed=embed, delete_after=3)
 
         else:
-            thread = await self.bot.threads.create(user, creator=ctx.author, category=category)
+            thread = await self.bot.threads.create(
+                recipient=user,
+                creator=ctx.author,
+                category=category,
+                manual_trigger=manual_trigger,
+            )
+            if thread.cancelled:
+                return
+
             if self.bot.config["dm_disabled"] in (DMDisabled.NEW_THREADS, DMDisabled.ALL_THREADS):
                 logger.info("Contacting user %s when Modmail DM is disabled.", user)
 
@@ -1482,9 +1489,7 @@ class Modmail(commands.Cog):
             )
             if len(users) == 1:
                 user = users.pop()
-                name = format_channel_name(
-                    user, self.bot.modmail_guild, exclude_channel=ctx.channel
-                )
+                name = format_channel_name(self.bot, user, exclude_channel=ctx.channel)
                 recipient = self.bot.get_user(user.id)
                 if user.id in self.bot.threads.cache:
                     thread = self.bot.threads.cache[user.id]

@@ -6,6 +6,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project mostly adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 however, insignificant breaking changes do not guarantee a major version bump, see the reasoning [here](https://github.com/kyb3r/modmail/issues/319). If you're a plugin developer, note the "BREAKING" section.
 
+# v3.9.3
+
+## Added
+
+- New config: ` use_user_id_channel_name`, when set to TRUE, channel names would get created with the recipient's ID instead of their name and discriminator.
+  - This is now an option to better suit the needs of servers in Server Discovery
+
+## Internal Change
+
+- Signature of `format_channel_name` in core/util.py changed to:
+  - `format_channel_name(bot, author, exclude_channel=None, force_null=False)`
+
+
+# v3.9.2
+
+### Improved
+
+- Additional HostingMethods (i.e. DOCKER, PM2, SCREEN). Autoupdates are now disabled on all docker instances. ([GH #2977](https://github.com/kyb3r/modmail/issues/2977), [PR #2988](https://github.com/kyb3r/modmail/pull/2988))
+
+### Fixed
+
+- `user_typing` default in the config help is now correct.
+
+# v3.9.1
+
+### Internal
+
+- `bot.run` now more gracefully handles closing, similar to how discord.py handles it.
+  - No longer displays `PrivilegedIntentsRequired` exception when exiting when presence intent is disabled.
+
+# v3.9.0
+
+### Breaking
+
+- `on_thread_initiate` and `on_thread_ready` events now have `thread, creator, category, initial_message` as additional arguments.
+
+### Fixed
+
+- `confirm_thread_creation` now properly works when a user opens a thread using react to contact. ([GH #2930](https://github.com/kyb3r/modmail/issues/2930), [PR #2971](https://github.com/kyb3r/modmail/pull/2971))
+- `?disable all/new` now disables react to contact threads. ([GH #2969](https://github.com/kyb3r/modmail/issues/2969), [PR #2971](https://github.com/kyb3r/modmail/pull/2971))
+- Ghost errors are no longer raised when threads are created using non-organic methods.
+
+### Internal
+
+- `thread.reply` now returns (msg_to_user, msg_to_thread). Can be useful in plugins.
+
+# v3.8.6
+
+### Added
+
+- Ability to install local plugins without relying on git / external sources
+  - Simply add your extension to plugins/@local, and use `?plugin add local/plugin-name` to load the plugin as normal
+- Updated deps for requirements.min.txt and pyproject.toml
+
 # v3.8.5
 
 ### Added
