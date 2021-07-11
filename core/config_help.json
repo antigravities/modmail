@@ -718,7 +718,7 @@
       "`{prefix}config set confirm_thread_creation yes`"
     ],
     "notes": [
-      "See also: `confirm_thread_creation_title`, `confirm_thread_response`, `confirm_thread_creation_accept`, `confirm_thread_creation_deny`"
+      "See also: `confirm_thread_creation_title`, `confirm_thread_response`, `confirm_thread_creation_accept`, `confirm_thread_creation_deny`, `confirm_thread_creation_timeout`"
     ]
   },
   "confirm_thread_creation_title": {
@@ -728,7 +728,7 @@
       "`{prefix}config set confirm_thread_creation_title Are you sure you want to create a new thread?`"
     ],
     "notes": [
-      "See also: `confirm_thread_creation`, `confirm_thread_response`, `confirm_thread_creation_accept`, `confirm_thread_creation_deny`"
+      "See also: `confirm_thread_creation`, `confirm_thread_response`, `confirm_thread_creation_accept`, `confirm_thread_creation_deny`, `confirm_thread_creation_timeout`"
     ]
   },
   "confirm_thread_response": {
@@ -738,7 +738,7 @@
       "`{prefix}config set confirm_thread_response React to confirm`"
     ],
     "notes": [
-      "See also: `confirm_thread_creation`, `confirm_thread_creation_title`, `confirm_thread_creation_accept`, `confirm_thread_creation_deny`"
+      "See also: `confirm_thread_creation`, `confirm_thread_creation_title`, `confirm_thread_creation_accept`, `confirm_thread_creation_deny`, `confirm_thread_creation_timeout`"
     ]
   },
   "confirm_thread_creation_accept": {
@@ -749,18 +749,29 @@
     ],
     "notes": [
       "This has no effect unless `confirm_thread_creation` is set",
-      "See also: `confirm_thread_creation`, `confirm_thread_creation_title`, `confirm_thread_response`, `confirm_thread_creation_deny`"
+      "See also: `confirm_thread_creation`, `confirm_thread_creation_title`, `confirm_thread_response`, `confirm_thread_creation_deny`, `confirm_thread_creation_timeout`"
     ]
   },
   "confirm_thread_creation_deny": {
     "default": "\uD83D\uDEAB",
-    "description": "Emoji to accept deny thread creation",
+    "description": "Emoji to deny thread creation",
     "examples":[
       "`{prefix}config set confirm_thread_creation_deny \u26D4`"
     ],
     "notes": [
       "This has no effect unless `confirm_thread_creation` is set",
-      "See also: `confirm_thread_creation`, `confirm_thread_creation_title`, `confirm_thread_response`, `confirm_thread_creation_accept`"
+      "See also: `confirm_thread_creation`, `confirm_thread_creation_title`, `confirm_thread_response`, `confirm_thread_creation_accept`, `confirm_thread_creation_timeout`"
+    ]
+  },
+  "confirm_thread_creation_timeout": {
+    "default": "20 seconds",
+    "description": "Time the user has to accept/deny thread creation",
+    "examples":[
+      "`{prefix}config set confirm_thread_creation_timeout 1 minute`"
+    ],
+    "notes": [
+      "This has no effect unless `confirm_thread_creation` is set",
+      "See also: `confirm_thread_creation`, `confirm_thread_creation_title`, `confirm_thread_response`, `confirm_thread_creation_accept`, `confirm_thread_creation_timeout`"
     ]
   },
   "use_regex_autotrigger": {

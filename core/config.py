@@ -103,6 +103,7 @@ class ConfigManager:
         "confirm_thread_response": "React to confirm thread creation which will directly contact the moderators",
         "confirm_thread_creation_accept": "\N{WHITE HEAVY CHECK MARK}",
         "confirm_thread_creation_deny": "\N{NO ENTRY SIGN}",
+        "confirm_thread_creation_timeout": isodate.Duration(),
         # regex
         "use_regex_autotrigger": False,
     }
@@ -158,7 +159,7 @@ class ConfigManager:
 
     colors = {"mod_color", "recipient_color", "main_color", "error_color"}
 
-    time_deltas = {"account_age", "guild_age", "thread_auto_close", "thread_cooldown"}
+    time_deltas = {"account_age", "guild_age", "thread_auto_close", "thread_cooldown", "confirm_thread_creation_timeout"}
 
     booleans = {
         "use_user_id_channel_name",

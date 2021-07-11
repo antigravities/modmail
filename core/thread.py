@@ -1251,7 +1251,7 @@ class ThreadManager:
                     and r.message.id == confirm.id
                     and r.message.channel.id == confirm.channel.id
                     and str(r.emoji) in (accept_emoji, deny_emoji),
-                    timeout=20,
+                    timeout=self.bot.config["confirm_thread_creation_timeout"].total_seconds(),
                 )
             except asyncio.TimeoutError:
                 thread.cancelled = True
