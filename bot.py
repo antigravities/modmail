@@ -704,7 +704,7 @@ class ModmailBot(commands.Bot):
 
         try:
             min_guild_age = author.joined_at + guild_age
-        except ValueError:
+        except (ValueError, TypeError):
             logger.warning("Error with 'guild_age'.", exc_info=True)
             min_guild_age = author.joined_at + self.config.remove("guild_age")
 
