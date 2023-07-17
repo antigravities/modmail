@@ -13,7 +13,7 @@ from discord.ext.commands import BadArgument
 
 from core._color_data import ALL_COLORS
 from core.models import DMDisabled, InvalidConfigError, Default, getLogger
-from core.time import UserFriendlyTimeSync
+from core.time import UserFriendlyTime
 from core.utils import strtobool
 
 logger = getLogger(__name__)
@@ -51,7 +51,14 @@ class ConfigManager:
         "blocked_emoji": "\N{NO ENTRY SIGN}",
         "close_emoji": "\N{LOCK}",
         "use_user_id_channel_name": False,
+        "use_timestamp_channel_name": False,
+        "use_nickname_channel_name": False,
+        "use_random_channel_name": False,
         "recipient_thread_close": False,
+        "thread_show_roles": True,
+        "thread_show_account_age": True,
+        "thread_show_join_age": True,
+        "thread_cancelled": "Cancelled",
         "thread_auto_close_silently": False,
         "thread_auto_close": isodate.Duration(),
         "thread_auto_close_response": "This thread has been closed automatically due to inactivity after {timeout}.",
@@ -59,6 +66,9 @@ class ConfigManager:
         "thread_creation_footer": "Your message has been sent",
         "thread_contact_silently": False,
         "thread_self_closable_creation_footer": "Click the lock to close the thread",
+        "thread_creation_contact_title": "New Thread",
+        "thread_creation_self_contact_response": "You have opened a Modmail thread.",
+        "thread_creation_contact_response": "{creator.name} has opened a Modmail thread.",
         "thread_creation_title": "Thread Created",
         "thread_close_footer": "Replying will create a new thread",
         "thread_close_title": "Thread Closed",
@@ -69,7 +79,7 @@ class ConfigManager:
         "thread_move_notify_mods": False,
         "thread_move_response": "This thread has been moved.",
         "cooldown_thread_title": "Message not sent!",
-        "cooldown_thread_response": "You must wait for {delta} before you can contact me again.",
+        "cooldown_thread_response": "Your cooldown ends {delta}. Try contacting me then.",
         "disabled_new_thread_title": "Not Delivered",
         "disabled_new_thread_response": "We are not accepting new threads.",
         "disabled_new_thread_footer": "Please try again later...",
@@ -86,6 +96,22 @@ class ConfigManager:
         "minimum_open_message_length": "0",
         "minimum_open_message_length_response": "Your message was too short. Make your message longer and try again.",
         "attachments_bypass_minimum_open_message_length": False,
+        "plain_snippets": False,
+        "require_close_reason": False,
+        "show_log_url_button": False,
+        # group conversations
+        "private_added_to_group_title": "New Thread (Group)",
+        "private_added_to_group_response": "{moderator.name} has added you to a Modmail thread.",
+        "private_added_to_group_description_anon": "A moderator has added you to a Modmail thread.",
+        "public_added_to_group_title": "New User",
+        "public_added_to_group_response": "{moderator.name} has added {users} to the Modmail thread.",
+        "public_added_to_group_description_anon": "A moderator has added {users} to the Modmail thread.",
+        "private_removed_from_group_title": "Removed From Thread (Group)",
+        "private_removed_from_group_response": "{moderator.name} has removed you from the Modmail thread.",
+        "private_removed_from_group_description_anon": "A moderator has removed you from the Modmail thread.",
+        "public_removed_from_group_title": "User Removed",
+        "public_removed_from_group_response": "{moderator.name} has removed {users} from the Modmail thread.",
+        "public_removed_from_group_description_anon": "A moderator has removed {users} from the Modmail thread.",
         # moderation
         "recipient_color": str(discord.Color.gold()),
         "mod_color": str(discord.Color.green()),
@@ -106,6 +132,7 @@ class ConfigManager:
         "confirm_thread_creation_timeout": isodate.Duration(),
         # regex
         "use_regex_autotrigger": False,
+        "use_hoisted_top_role": True,
     }
 
     private_keys = {
@@ -143,6 +170,8 @@ class ConfigManager:
         "database_type": "mongodb",
         "connection_uri": None,  # replace mongo uri in the future
         "owners": None,
+        "enable_presence_intent": False,
+        "registry_plugins_only": False,
         # bot
         "token": None,
         "enable_plugins": True,
@@ -163,11 +192,15 @@ class ConfigManager:
 
     booleans = {
         "use_user_id_channel_name",
+        "use_timestamp_channel_name",
+        "use_nickname_channel_name",
+        "use_random_channel_name",
         "user_typing",
         "mod_typing",
         "reply_without_command",
         "anon_reply_without_command",
         "plain_reply_without_command",
+        "show_log_url_button",
         "recipient_thread_close",
         "thread_auto_close_silently",
         "thread_move_notify",
@@ -188,6 +221,15 @@ class ConfigManager:
         "thread_contact_silently",
         "anonymous_snippets",
         "attachments_bypass_minimum_open_message_length",
+        "plain_snippets",
+        "require_close_reason",
+        "recipient_thread_close",
+        "thread_show_roles",
+        "thread_show_account_age",
+        "thread_show_join_age",
+        "use_hoisted_top_role",
+        "enable_presence_intent",
+        "registry_plugins_only",
     }
 
     enums = {
@@ -215,28 +257,18 @@ class ConfigManager:
 
         # populate from env var and .env file
         data.update({k.lower(): v for k, v in os.environ.items() if k.lower() in self.all_keys})
-        config_json = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json"
-        )
+        config_json = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
         if os.path.exists(config_json):
             logger.debug("Loading envs from config.json.")
             with open(config_json, "r", encoding="utf-8") as f:
                 # Config json should override env vars
                 try:
-                    data.update(
-                        {
-                            k.lower(): v
-                            for k, v in json.load(f).items()
-                            if k.lower() in self.all_keys
-                        }
-                    )
+                    data.update({k.lower(): v for k, v in json.load(f).items() if k.lower() in self.all_keys})
                 except json.JSONDecodeError:
                     logger.critical("Failed to load config.json env values.", exc_info=True)
         self._cache = data
 
-        config_help_json = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "config_help.json"
-        )
+        config_help_json = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_help.json")
         with open(config_help_json, "r", encoding="utf-8") as f:
             self.config_help = dict(sorted(json.load(f).items()))
 
@@ -274,7 +306,7 @@ class ConfigManager:
     def __delitem__(self, key: str) -> None:
         return self.remove(key)
 
-    def get(self, key: str, convert=True) -> typing.Any:
+    def get(self, key: str, *, convert: bool = True) -> typing.Any:
         key = key.lower()
         if key not in self.all_keys:
             raise InvalidConfigError(f'Configuration "{key}" is invalid.')
@@ -343,7 +375,7 @@ class ConfigManager:
 
         return value
 
-    def set(self, key: str, item: typing.Any, convert=True) -> None:
+    async def set(self, key: str, item: typing.Any, convert=True) -> None:
         if not convert:
             return self.__setitem__(key, item)
 
@@ -377,8 +409,8 @@ class ConfigManager:
                 isodate.parse_duration(item)
             except isodate.ISO8601Error:
                 try:
-                    converter = UserFriendlyTimeSync()
-                    time = converter.convert(None, item)
+                    converter = UserFriendlyTime()
+                    time = await converter.convert(None, item, now=discord.utils.utcnow())
                     if time.arg:
                         raise ValueError
                 except BadArgument as exc:
@@ -389,7 +421,8 @@ class ConfigManager:
                         "Unrecognized time, please use ISO-8601 duration format "
                         'string or a simpler "human readable" time.'
                     )
-                item = isodate.duration_isoformat(time.dt - converter.now)
+                now = discord.utils.utcnow()
+                item = isodate.duration_isoformat(time.dt - now)
             return self.__setitem__(key, item)
 
         if key in self.booleans:

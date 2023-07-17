@@ -53,7 +53,7 @@ class Version:
         self.version = version.lstrip("vV")
         self.lines = lines.strip()
         self.fields = {}
-        self.changelog_url = f"https://github.com/kyb3r/modmail/blob/{branch}/CHANGELOG.md"
+        self.changelog_url = f"https://github.com/modmail-dev/modmail/blob/{branch}/CHANGELOG.md"
         self.description = ""
         self.parse()
 
@@ -65,9 +65,7 @@ class Version:
         Parse the lines and split them into `description` and `fields`.
         """
         self.description = re.match(self.DESCRIPTION_REGEX, self.lines, re.DOTALL)
-        self.description = (
-            self.description.group(1).strip() if self.description is not None else ""
-        )
+        self.description = self.description.group(1).strip() if self.description is not None else ""
 
         matches = re.finditer(self.ACTION_REGEX, self.lines, re.DOTALL)
         for m in matches:
@@ -91,13 +89,16 @@ class Version:
         """
         embed = Embed(color=self.bot.main_color, description=self.description)
         embed.set_author(
-            name=f"v{self.version} - Changelog", icon_url=self.bot.user.avatar_url, url=self.url,
+            name=f"v{self.version} - Changelog",
+            icon_url=self.bot.user.display_avatar.url,
+            url=self.url,
         )
 
         for name, value in self.fields.items():
             embed.add_field(name=name, value=truncate(value, 1024), inline=False)
         embed.set_footer(text=f"Current version: v{self.bot.version}")
-        embed.set_thumbnail(url=self.bot.user.avatar_url)
+
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         return embed
 
 
@@ -171,7 +172,9 @@ class Changelog:
         """
         # get branch via git cli if available
         proc = await asyncio.create_subprocess_shell(
-            "git branch --show-current", stderr=PIPE, stdout=PIPE,
+            "git branch --show-current",
+            stderr=PIPE,
+            stdout=PIPE,
         )
         err = await proc.stderr.read()
         err = err.decode("utf-8").rstrip()
@@ -183,7 +186,7 @@ class Changelog:
         if branch not in ("master", "development"):
             branch = "master"
 
-        url = url or f"https://raw.githubusercontent.com/kyb3r/modmail/{branch}/CHANGELOG.md"
+        url = url or f"https://raw.githubusercontent.com/modmail-dev/modmail/{branch}/CHANGELOG.md"
 
         async with await bot.session.get(url) as resp:
             return cls(bot, branch, await resp.text())

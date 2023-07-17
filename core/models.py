@@ -128,7 +128,7 @@ class FileFormatter(logging.Formatter):
 
 def configure_logging(name, level=None):
     global ch_debug, log_level
-    ch_debug = RotatingFileHandler(name, mode="a+", maxBytes=48000, backupCount=1)
+    ch_debug = RotatingFileHandler(name, mode="a+", maxBytes=48000, backupCount=1, encoding="utf-8")
 
     formatter_debug = FileFormatter(
         "%(asctime)s %(name)s[%(lineno)d] - %(levelname)s: %(message)s",
@@ -202,11 +202,15 @@ class SimilarCategoryConverter(commands.CategoryChannelConverter):
         try:
             return await super().convert(ctx, argument)
         except commands.ChannelNotFound:
+
             if guild:
                 categories = {c.name.casefold(): c for c in guild.categories}
             else:
-                categories = {c.name.casefold(): c for c in bot.get_all_channels()
-                              if isinstance(c, discord.CategoryChannel)}
+                categories = {
+                    c.name.casefold(): c
+                    for c in bot.get_all_channels()
+                    if isinstance(c, discord.CategoryChannel)
+                }
 
             result = get_close_matches(argument.casefold(), categories.keys(), n=1, cutoff=0.75)
             if result:

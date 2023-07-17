@@ -7,31 +7,31 @@
 
   **This project is a fork of [kyb3r/modmail](https://github.com/kyb3r/modmail).**
   
-  <a href="https://heroku.com/deploy?template=https://github.com/kyb3r/modmail">
+  <a href="https://heroku.com/deploy?template=https://github.com/modmail-dev/modmail">
     <img src="https://img.shields.io/badge/deploy_to-heroku-997FBC.svg?style=for-the-badge&logo=Heroku">
   </a>
 
-  <a href="https://github.com/kyb3r/modmail/">
+  <a href="https://github.com/modmail-dev/modmail/">
     <img src="https://api.modmail.dev/badges/instances.svg" alt="Bot instances">
   </a>
 
-  <a href="https://discord.gg/j5e9p8w">
-    <img src="https://img.shields.io/discord/515071617815019520.svg?label=Discord&logo=Discord&colorB=7289da&style=for-the-badge" alt="Support">
+  <a href="https://discord.gg/cnUpwrnpYb">
+    <img src="https://img.shields.io/discord/1079074933008781362.svg?label=Discord&logo=Discord&colorB=7289da&style=for-the-badge" alt="Support">
   </a>
 
   <a href="https://patreon.com/kyber">
-    <img src="https://img.shields.io/badge/patreon-donate-orange.svg?style=for-the-badge&logo=Patreon" alt="Python 3.7">
+    <img src="https://img.shields.io/badge/patreon-donate-orange.svg?style=for-the-badge&logo=Patreon" alt="Python 3.8">
   </a>
 
   <a href="https://www.python.org/downloads/">
-    <img src="https://img.shields.io/badge/Made%20With-Python%203.7-blue.svg?style=for-the-badge&logo=Python" alt="Made with Python 3.7">
+    <img src="https://img.shields.io/badge/Made%20With-Python%203.8-blue.svg?style=for-the-badge&logo=Python" alt="Made with Python 3.8">
   </a>
 
   <a href="https://github.com/ambv/black">
     <img src="https://img.shields.io/badge/Code%20Style-Black-black?style=for-the-badge">
   </a>
 
-  <a href="https://github.com/kyb3r/modmail/blob/master/LICENSE">
+  <a href="https://github.com/modmail-dev/modmail/blob/master/LICENSE">
     <img src="https://img.shields.io/badge/license-agpl-e74c3c.svg?style=for-the-badge" alt="MIT License">
   </a>
 
@@ -88,20 +88,20 @@ There are more changes planned, but this is what I have for now:
 
 ## Installation
 
-Where can I find the Modmail bot invite link? 
+Q: Where can I find the Modmail bot invite link?
 
-Unfortunately, due to how this bot functions, it cannot be invited. The lack of an invite link is to ensure an individuality to your server and grant you full control over your bot and data.
+A: Unfortunately, due to how this bot functions, it cannot be invited. The lack of an invite link is to ensure an individuality to your server and grant you full control over your bot and data. Nonetheless, you can quickly obtain a free copy of Modmail for your server by following one of the methods listed below (roughly takes 15 minutes of your time).
 
-### Heroku
+There are a few options for hosting your very own dedicated Modmail bot.
 
 You *can* host this bot on Heroku. You shouldn't do this; you should host your bot on a server - bare metal or VPS. I recommend using Docker but almost anything is better than Heroku. When I get a chance, I will write a guide for that. If you understand the risks, here's how to use Heroku anyway:
 
 Installation via Heroku is possible with your web browser alone. 
 Upstream's [**installation guide**](https://github.com/kyb3r/modmail/wiki/Installation) (which includes a video tutorial!) will guide you through the entire installation process.
 
-To configure automatic updates:
+When using Heroku, you can configure automatic updates:
  - Login to [GitHub](https://github.com/) and verify your account.
- - [Fork this repo](https://github.com/antigravities/cutemail/fork).
+ - [Fork this repo](https://github.com/antigravities/modmail/fork).
  - Install the [Pull app](https://github.com/apps/pull) for your fork. 
  - Then go to the Deploy tab in your [Heroku account](https://dashboard.heroku.com/apps) of your bot app, select GitHub and connect your fork (usually by typing "Modmail"). 
  - Turn on auto-deploy for the `master` branch.

@@ -1,9 +1,9 @@
 import secrets
 import sys
-from datetime import datetime
 from json import JSONDecodeError
-from typing import Union, Optional
+from typing import Any, Dict, Union, Optional
 
+import discord
 from discord import Member, DMChannel, TextChannel, Message
 from discord.ext import commands
 
@@ -19,6 +19,7 @@ logger = getLogger(__name__)
 class GitHub:
     """
     The client for interacting with GitHub API.
+
     Parameters
     ----------
     bot : Bot
@@ -31,6 +32,7 @@ class GitHub:
         URL to the avatar in GitHub.
     url : str, optional
         URL to the GitHub profile.
+
     Attributes
     ----------
     bot : Bot
@@ -43,6 +45,7 @@ class GitHub:
         URL to the avatar in GitHub.
     url : str
         URL to the GitHub profile.
+
     Class Attributes
     ----------------
     BASE : str
@@ -60,15 +63,15 @@ class GitHub:
     """
 
     BASE = "https://api.github.com"
-    REPO = BASE + "/repos/kyb3r/modmail"
+    REPO = BASE + "/repos/modmail-dev/modmail"
     MERGE_URL = BASE + "/repos/{username}/modmail/merges"
     FORK_URL = REPO + "/forks"
-    STAR_URL = BASE + "/user/starred/kyb3r/modmail"
+    STAR_URL = BASE + "/user/starred/modmail-dev/modmail"
 
     def __init__(self, bot, access_token: str = "", username: str = "", **kwargs):
         self.bot = bot
         self.session = bot.session
-        self.headers: dict = None
+        self.headers: Optional[dict] = None
         self.access_token = access_token
         self.username = username
         self.avatar_url: str = kwargs.pop("avatar_url", "")
@@ -77,7 +80,7 @@ class GitHub:
             self.headers = {"Authorization": "token " + str(access_token)}
 
     @property
-    def BRANCH(self):
+    def BRANCH(self) -> str:
         return "master" if not self.bot.version.is_prerelease else "development"
 
     async def request(
@@ -85,11 +88,13 @@ class GitHub:
         url: str,
         method: str = "GET",
         payload: dict = None,
-        return_response: bool = False,
         headers: dict = None,
-    ) -> Union[ClientResponse, dict, str]:
+        return_response: bool = False,
+        read_before_return: bool = False,
+    ) -> Union[ClientResponse, Dict[str, Any], str]:
         """
         Makes a HTTP request.
+
         Parameters
         ----------
         url : str
@@ -98,16 +103,20 @@ class GitHub:
             The HTTP method (POST, GET, PUT, DELETE, FETCH, etc.).
         payload : Dict[str, Any]
             The json payload to be sent along the request.
-        return_response : bool
-            Whether the `ClientResponse` object should be returned.
         headers : Dict[str, str]
             Additional headers to `headers`.
+        return_response : bool
+            Whether the `ClientResponse` object should be returned.
+        read_before_return : bool
+            Whether to perform `.read()` method before returning the `ClientResponse` object.
+            Only valid if `return_response` is set to `True`.
+
         Returns
         -------
         ClientResponse or Dict[str, Any] or List[Any] or str
             `ClientResponse` if `return_response` is `True`.
-            `dict` if the returned data is a json object.
-            `list` if the returned data is a json list.
+            `Dict[str, Any]` if the returned data is a json object.
+            `List[Any]` if the returned data is a json list.
             `str` if the returned data is not a valid json data,
             the raw response.
         """
@@ -117,19 +126,32 @@ class GitHub:
             headers = self.headers
         async with self.session.request(method, url, headers=headers, json=payload) as resp:
             if return_response:
+                if read_before_return:
+                    await resp.read()
                 return resp
-            try:
-                return await resp.json()
-            except (JSONDecodeError, ClientResponseError):
-                return await resp.text()
 
-    def filter_valid(self, data):
+            return await self._get_response_data(resp)
+
+    @staticmethod
+    async def _get_response_data(response: ClientResponse) -> Union[Dict[str, Any], str]:
+        """
+        Internal method to convert the response data to `dict` if the data is a
+        json object, or to `str` (raw response) if the data is not a valid json.
+        """
+        try:
+            return await response.json()
+        except (JSONDecodeError, ClientResponseError):
+            return await response.text()
+
+    def filter_valid(self, data) -> Dict[str, Any]:
         """
         Filters configuration keys that are accepted.
+
         Parameters
         ----------
         data : Dict[str, Any]
             The data that needs to be cleaned.
+
         Returns
         -------
         Dict[str, Any]
@@ -138,42 +160,79 @@ class GitHub:
         valid_keys = self.bot.config.valid_keys.difference(self.bot.config.protected_keys)
         return {k: v for k, v in data.items() if k in valid_keys}
 
-    async def update_repository(self, sha: str = None) -> Optional[dict]:
+    async def update_repository(self, sha: str = None) -> Dict[str, Any]:
         """
         Update the repository from Modmail main repo.
+
         Parameters
         ----------
-        sha : Optional[str], optional
-            The commit SHA to update the repository.
+        sha : Optional[str]
+            The commit SHA to update the repository. If `None`, the latest
+            commit SHA will be fetched.
+
         Returns
         -------
-        Optional[dict]
-            If the response is a dict.
+        Dict[str, Any]
+            A dictionary that contains response data.
         """
         if not self.username:
             raise commands.CommandInvokeError("Username not found.")
 
         if sha is None:
-            resp: dict = await self.request(self.REPO + "/git/refs/heads/" + self.BRANCH)
+            resp = await self.request(self.REPO + "/git/refs/heads/" + self.BRANCH)
             sha = resp["object"]["sha"]
 
         payload = {"base": self.BRANCH, "head": sha, "commit_message": "Updating bot"}
 
         merge_url = self.MERGE_URL.format(username=self.username)
 
-        resp = await self.request(merge_url, method="POST", payload=payload)
-        if isinstance(resp, dict):
-            return resp
+        resp = await self.request(
+            merge_url,
+            method="POST",
+            payload=payload,
+            return_response=True,
+            read_before_return=True,
+        )
+
+        repo_url = self.BASE + f"/repos/{self.username}/modmail"
+        status_map = {
+            201: "Successful response.",
+            204: "Already merged.",
+            403: "Forbidden.",
+            404: f"Repository '{repo_url}' not found.",
+            409: "There is a merge conflict.",
+            422: "Validation failed.",
+        }
+        # source https://docs.github.com/en/rest/branches/branches#merge-a-branch
+
+        status = resp.status
+        data = await self._get_response_data(resp)
+        if status in (201, 204):
+            return data
+
+        args = (resp.request_info, resp.history)
+        try:
+            # try to get the response error message if any
+            message = data.get("message")
+        except AttributeError:
+            message = None
+        kwargs = {
+            "status": status,
+            "message": message if message else status_map.get(status),
+        }
+        # just raise
+        raise ClientResponseError(*args, **kwargs)
 
     async def fork_repository(self) -> None:
         """
         Forks Modmail's repository.
         """
-        await self.request(self.FORK_URL, method="POST")
+        await self.request(self.FORK_URL, method="POST", return_response=True)
 
     async def has_starred(self) -> bool:
         """
         Checks if shared Modmail.
+
         Returns
         -------
         bool
@@ -187,23 +246,30 @@ class GitHub:
         """
         Stars Modmail's repository.
         """
-        await self.request(self.STAR_URL, method="PUT", headers={"Content-Length": "0"})
+        await self.request(
+            self.STAR_URL,
+            method="PUT",
+            headers={"Content-Length": "0"},
+            return_response=True,
+        )
 
     @classmethod
     async def login(cls, bot) -> "GitHub":
         """
         Logs in to GitHub with configuration variable information.
+
         Parameters
         ----------
         bot : Bot
             The Modmail bot.
+
         Returns
         -------
         GitHub
             The newly created `GitHub` object.
         """
         self = cls(bot, bot.config.get("github_token"))
-        resp: dict = await self.request("https://api.github.com/user")
+        resp: Dict[str, Any] = await self.request(self.BASE + "/user")
         if resp.get("login"):
             self.username = resp["login"]
             self.avatar_url = resp["avatar_url"]
@@ -305,9 +371,7 @@ class ApiClient:
     async def get_log_link(self, channel_id: Union[str, int]) -> str:
         return NotImplemented
 
-    async def create_log_entry(
-        self, recipient: Member, channel: TextChannel, creator: Member
-    ) -> str:
+    async def create_log_entry(self, recipient: Member, channel: TextChannel, creator: Member) -> str:
         return NotImplemented
 
     async def delete_log_entry(self, key: str) -> bool:
@@ -319,7 +383,7 @@ class ApiClient:
     async def update_config(self, data: dict):
         return NotImplemented
 
-    async def edit_message(self, message_id: Union[int, str], new_content: str) -> None:
+    async def edit_message(self, message_id: Union[int, str], new_content: str):
         return NotImplemented
 
     async def append_log(
@@ -359,6 +423,12 @@ class ApiClient:
     def get_plugin_partition(self, cog):
         return NotImplemented
 
+    async def update_repository(self) -> dict:
+        return NotImplemented
+
+    async def get_user_info(self) -> Optional[dict]:
+        return NotImplemented
+
 
 class MongoDBClient(ApiClient):
     def __init__(self, bot):
@@ -379,9 +449,9 @@ class MongoDBClient(ApiClient):
         except ConfigurationError as e:
             logger.critical(
                 "Your MongoDB CONNECTION_URI might be copied wrong, try re-copying from the source again. "
-                "Otherwise noted in the following message:"
+                "Otherwise noted in the following message:\n%s",
+                e,
             )
-            logger.critical(e)
             sys.exit(0)
 
         super().__init__(bot, db)
@@ -407,14 +477,28 @@ class MongoDBClient(ApiClient):
             )
         logger.debug("Successfully configured and verified database indexes.")
 
-    async def validate_database_connection(self):
+    async def validate_database_connection(self, *, ssl_retry=True):
         try:
             await self.db.command("buildinfo")
         except Exception as exc:
             logger.critical("Something went wrong while connecting to the database.")
             message = f"{type(exc).__name__}: {str(exc)}"
             logger.critical(message)
-
+            if "CERTIFICATE_VERIFY_FAILED" in message and ssl_retry:
+                mongo_uri = self.bot.config["connection_uri"]
+                if mongo_uri is None:
+                    mongo_uri = self.bot.config["mongo_uri"]
+                for _ in range(3):
+                    logger.warning(
+                        "FAILED TO VERIFY SSL CERTIFICATE, ATTEMPTING TO START WITHOUT SSL (UNSAFE)."
+                    )
+                logger.warning(
+                    "To fix this warning, check there's no proxies blocking SSL cert verification, "
+                    'run "Certificate.command" on MacOS, '
+                    'and check certifi is up to date "pip3 install --upgrade certifi".'
+                )
+                self.db = AsyncIOMotorClient(mongo_uri, tlsAllowInvalidCertificates=True).modmail_bot
+                return await self.validate_database_connection(ssl_retry=False)
             if "ServerSelectionTimeoutError" in message:
                 logger.critical(
                     "This may have been caused by not whitelisting "
@@ -479,13 +563,9 @@ class MongoDBClient(ApiClient):
         prefix = self.bot.config["log_url_prefix"].strip("/")
         if prefix == "NONE":
             prefix = ""
-        return (
-            f"{self.bot.config['log_url'].strip('/')}{'/' + prefix if prefix else ''}/{doc['key']}"
-        )
+        return f"{self.bot.config['log_url'].strip('/')}{'/' + prefix if prefix else ''}/{doc['key']}"
 
-    async def create_log_entry(
-        self, recipient: Member, channel: TextChannel, creator: Member
-    ) -> str:
+    async def create_log_entry(self, recipient: Member, channel: TextChannel, creator: Member) -> str:
         key = secrets.token_hex(6)
 
         await self.logs.insert_one(
@@ -493,7 +573,7 @@ class MongoDBClient(ApiClient):
                 "_id": key,
                 "key": key,
                 "open": True,
-                "created_at": str(datetime.utcnow()),
+                "created_at": str(discord.utils.utcnow()),
                 "closed_at": None,
                 "channel_id": str(channel.id),
                 "guild_id": str(self.bot.guild_id),
@@ -502,14 +582,14 @@ class MongoDBClient(ApiClient):
                     "id": str(recipient.id),
                     "name": recipient.name,
                     "discriminator": recipient.discriminator,
-                    "avatar_url": str(recipient.avatar_url),
+                    "avatar_url": recipient.display_avatar.url,
                     "mod": False,
                 },
                 "creator": {
                     "id": str(creator.id),
                     "name": creator.name,
                     "discriminator": creator.discriminator,
-                    "avatar_url": str(creator.avatar_url),
+                    "avatar_url": creator.display_avatar.url,
                     "mod": isinstance(creator, Member),
                 },
                 "closer": None,
@@ -536,9 +616,7 @@ class MongoDBClient(ApiClient):
 
     async def update_config(self, data: dict):
         toset = self.bot.config.filter_valid(data)
-        unset = self.bot.config.filter_valid(
-            {k: 1 for k in self.bot.config.all_keys if k not in data}
-        )
+        unset = self.bot.config.filter_valid({k: 1 for k in self.bot.config.all_keys if k not in data})
 
         if toset and unset:
             return await self.db.config.update_one(
@@ -573,7 +651,7 @@ class MongoDBClient(ApiClient):
                 "id": str(message.author.id),
                 "name": message.author.name,
                 "discriminator": message.author.discriminator,
-                "avatar_url": str(message.author.avatar_url),
+                "avatar_url": message.author.display_avatar.url,
                 "mod": not isinstance(message.channel, DMChannel),
             },
             "content": message.content,
@@ -623,7 +701,7 @@ class MongoDBClient(ApiClient):
                     "id": str(message.author.id),
                     "name": message.author.name,
                     "discriminator": message.author.discriminator,
-                    "avatar_url": str(message.author.avatar_url),
+                    "avatar_url": message.author.display_avatar.url,
                 },
                 "message": message.content,
                 "message_id": str(message_id),
@@ -635,17 +713,13 @@ class MongoDBClient(ApiClient):
 
     async def update_note_ids(self, ids: dict):
         for object_id, message_id in ids.items():
-            await self.db.notes.update_one(
-                {"_id": object_id}, {"$set": {"message_id": message_id}}
-            )
+            await self.db.notes.update_one({"_id": object_id}, {"$set": {"message_id": message_id}})
 
     async def delete_note(self, message_id: Union[int, str]):
         await self.db.notes.delete_one({"message_id": str(message_id)})
 
     async def edit_note(self, message_id: Union[int, str], message: str):
-        await self.db.notes.update_one(
-            {"message_id": str(message_id)}, {"$set": {"message": message}}
-        )
+        await self.db.notes.update_one({"message_id": str(message_id)}, {"$set": {"message": message}})
 
     def get_plugin_partition(self, cog):
         cls_name = cog.__class__.__name__
@@ -656,10 +730,14 @@ class MongoDBClient(ApiClient):
         data = await user.update_repository()
         return {
             "data": data,
-            "user": {"username": user.username, "avatar_url": user.avatar_url, "url": user.url,},
+            "user": {
+                "username": user.username,
+                "avatar_url": user.avatar_url,
+                "url": user.url,
+            },
         }
 
-    async def get_user_info(self) -> dict:
+    async def get_user_info(self) -> Optional[dict]:
         try:
             user = await GitHub.login(self.bot)
         except InvalidConfigError:

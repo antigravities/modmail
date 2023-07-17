@@ -1,10 +1,10 @@
-FROM python:3.9-slim as py
+FROM python:3.10 as py
 
 FROM py as build
 
-RUN apt update && apt install -y g++
-COPY requirements.min.txt /
-RUN pip install --prefix=/inst -U -r /requirements.min.txt
+RUN apt update && apt install -y g++ git
+COPY requirements.txt /
+RUN pip install --prefix=/inst -U -r /requirements.txt
 
 FROM py
 
