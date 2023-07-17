@@ -1547,6 +1547,7 @@ class ModmailBot(commands.Bot):
         else:
             logger.error("Unexpected exception:", exc_info=exception)
 
+    @tasks.loop(hours=1)
     async def autoupdate(self):
         changelog = await Changelog.from_url(self)
         latest = changelog.latest_version
