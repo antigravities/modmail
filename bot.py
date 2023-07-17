@@ -631,7 +631,6 @@ class ModmailBot(commands.Bot):
             )
             logger.warning("If the external servers are valid, you may ignore this message.")
 
-        self.post_metadata.start()
         self.autoupdate.start()
         self._started = True
 
